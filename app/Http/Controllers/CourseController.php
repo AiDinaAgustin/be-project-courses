@@ -2,8 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Imports\CourseImport;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use App\Services\CourseService;
+use App\Exports\CoursesExport;
+use Maatwebsite\Excel\Facades\Excel;
+
 
 class CourseController extends Controller
 {
@@ -86,7 +91,7 @@ class CourseController extends Controller
         if ($request->hasFile('image')) {
             $currentCourse = $this->courseService->getCourseById($id);
             if ($currentCourse && $currentCourse->image) {
-                \Storage::disk('public')->delete($currentCourse->image);
+                Storage::disk('public')->delete($currentCourse->image);
             }
             $imagePath = $request->file('image')->store('courses', 'public');
             $data['image'] = $imagePath;
@@ -123,5 +128,31 @@ class CourseController extends Controller
                 'status' => 200
             ]);
         }
+    }
+
+    public function export()
+    {
+        return Excel::download(new CoursesExport, 'courses.xlsx');
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,csv'
+        ]);
+    
+        $file = $request->file('file');
+        $nama_file = uniqid() . '_' . $file->getClientOriginalName();
+    
+        // Simpan file ke storage/app/public/file_course
+        $path = $file->storeAs('file_course', $nama_file, 'public');
+    
+        // Import data dari file yang sudah diupload
+        Excel::import(new CourseImport, storage_path('app/public/' . $path));
+    
+        return response()->json([
+            'message' => 'Courses imported successfully',
+            'status' => 200
+        ], 200);
     }
 }
